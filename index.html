@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,7 +22,7 @@
 <body>
   <h1>🧮 Fraction Visualiser</h1>
   <div class="button-row">
-    <label>Enter Fraction (e.g. 3/4 or 7/5): </label>
+    <label>Enter Fraction (e.g. 3/4 or 1 1/4): </label>
     <input type="text" id="fractionInput" />
     <button onclick="addBar()">Add Bar</button>
     <button onclick="addPie()">Add Pie</button>
@@ -41,8 +40,27 @@
   <script>
     function parseFraction() {
       const input = document.getElementById("fractionInput").value.trim();
-      const [n, d] = input.split("/").map(Number);
-      return { numerator: n, denominator: d, label: input };
+      const mixedMatch = input.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+      const fractionMatch = input.match(/^(\d+)\/(\d+)$/);
+
+      let numerator, denominator, label = input;
+
+      if (mixedMatch) {
+        const whole = parseInt(mixedMatch[1]);
+        const num = parseInt(mixedMatch[2]);
+        const den = parseInt(mixedMatch[3]);
+        numerator = whole * den + num;
+        denominator = den;
+        label = `${whole} ${num}/${den}`;
+      } else if (fractionMatch) {
+        numerator = parseInt(fractionMatch[1]);
+        denominator = parseInt(fractionMatch[2]);
+      } else {
+        alert("Invalid format. Use '3/4' or '1 1/4'");
+        return null;
+      }
+
+      return { numerator, denominator, label };
     }
 
     function createCanvas(w, h) {
@@ -53,8 +71,9 @@
     }
 
     function addBar() {
-      const { numerator, denominator, label } = parseFraction();
-      if (!numerator || !denominator) return;
+      const parsed = parseFraction();
+      if (!parsed) return;
+      const { numerator, denominator, label } = parsed;
 
       const container = document.createElement("div");
       container.className = "block";
@@ -74,8 +93,9 @@
     }
 
     function addPie() {
-      const { numerator, denominator, label } = parseFraction();
-      if (!numerator || !denominator) return;
+      const parsed = parseFraction();
+      if (!parsed) return;
+      const { numerator, denominator, label } = parsed;
 
       const container = document.createElement("div");
       container.className = "block";
@@ -102,15 +122,12 @@
     }
 
     function addLine() {
+      const parsed = parseFraction();
+      if (!parsed) return;
+      const { numerator, denominator, label } = parsed;
+
       const container = document.createElement("div");
       container.className = "block";
-
-      const input = document.getElementById("fractionInput").value.trim();
-      const [n, d] = input.split("/").map(Number);
-      if (!n || !d) return;
-
-      const label = input;
-      const parts = Math.ceil(n / d); // e.g., 7/5 => 2
       container.innerHTML = `<div class='label'>Line: ${label}</div>`;
 
       const canvas = createCanvas(320, 50);
@@ -119,7 +136,8 @@
       const xStart = 20;
       const xEnd = 300;
       const y = 25;
-      const totalTicks = parts * d;
+      const parts = Math.ceil(numerator / denominator);
+      const totalTicks = parts * denominator;
 
       // Main line
       ctx.beginPath();
@@ -136,7 +154,7 @@
         ctx.stroke();
       }
 
-      // Numbers 0 to parts
+      // Numbers
       ctx.font = "12px sans-serif";
       for (let i = 0; i <= parts; i++) {
         const x = xStart + ((xEnd - xStart) / parts) * i;
