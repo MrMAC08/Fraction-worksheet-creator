@@ -2,168 +2,437 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Fraction Visualiser</title>
+  <title>A4 Maximized Shape & Fraction Generator</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #f0f2f5; }
-    input, button { padding: 6px; font-size: 16px; margin: 6px; }
-    canvas { display: block; margin: 6px auto; }
-    .block { display: inline-block; margin: 10px; vertical-align: top; }
-    .worksheet { margin-top: 30px; background: white; padding: 20px; border: 1px solid #ccc; }
-    .label { font-weight: bold; margin-bottom: 6px; text-align: center; }
-    h1 { margin-bottom: 10px; }
-    .button-row { margin-bottom: 20px; }
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg-main: #f1f5f9;
+      --bg-card: #ffffff;
+      --text: #0f172a;
+      --border: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg-main); color: var(--text); margin: 0; padding: 20px; }
+
+    /* Control Panel */
+    .controls {
+      background: var(--bg-card);
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      margin-bottom: 30px;
+      max-width: 1100px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 { color: var(--primary); margin-top: 0; font-size: 22px; display: flex; align-items: center; gap: 8px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label { font-weight: 600; font-size: 13px; color: #475569; }
+    input, select { padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #fff; }
+    input:focus, select:focus { outline: 2px solid var(--primary); }
+    
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+    button {
+      background: var(--primary); color: white; border: none; padding: 10px 18px;
+      border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+      display: flex; align-items: center; gap: 6px; font-size: 14px;
+    }
+    button:hover { background: var(--primary-hover); }
+    button.clear-btn { background: #ef4444; }
+    button.clear-btn:hover { background: #dc2626; }
+    button.print-btn { background: #059669; margin-left: auto; }
+    button.print-btn:hover { background: #047857; }
+
+    /* Strict A4 Page Container */
+    .worksheet {
+      background: white;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 15mm;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+      position: relative;
+    }
+    .ws-header { border-bottom: 2px dashed #94a3b8; padding-bottom: 12px; margin-bottom: 20px; }
+    .ws-title { font-size: 24px; margin: 0 0 10px 0; font-weight: 700; text-align: center; }
+    .student-meta { display: flex; gap: 30px; font-size: 14px; }
+    .meta-line { flex-grow: 1; border-bottom: 1px solid #94a3b8; height: 20px; }
+
+    /* Layout Grids */
+    .visuals-grid {
+      display: grid;
+      gap: 40px; 
+      width: 100%;
+    }
+    
+    /* Layout Profiles */
+    .size-1  { grid-template-columns: 1fr; }
+    .size-2  { grid-template-columns: 1fr; }
+    .size-4  { grid-template-columns: repeat(2, 1fr); }
+    .size-6  { grid-template-columns: repeat(2, 1fr); }
+    .size-12 { grid-template-columns: repeat(3, 1fr); }
+
+    /* Cutout Container Architecture */
+    .cut-card {
+      position: relative;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start; 
+      page-break-inside: avoid;
+      width: 100%;
+      padding: 10px;
+    }
+    
+    /* Strict Height targets */
+    .size-1 .cut-card  { height: 250mm; }
+    .size-2 .cut-card  { height: 120mm; }
+    .size-4 .cut-card  { height: 120mm; }
+    .size-6 .cut-card  { height: 80mm; }
+    .size-12 .cut-card { height: 55mm; }
+
+    /* Explicit Question-to-Shape Rules */
+    .card-title { 
+      font-size: 16px; 
+      font-weight: 600; 
+      text-align: center; 
+      width: 100%; 
+      margin: 0 0 8px 0; 
+      min-height: 20px; 
+      line-height: 1.2;
+    }
+    
+    .card-canvas-container { 
+      width: 100%; 
+      flex-grow: 1; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 0; 
+      margin-bottom: 8px;
+    }
+    
+    canvas { display: block; max-width: 100%; max-height: 100%; }
+    
+    /* Large Fraction Assessment Box */
+    .fraction-box {
+      width: 60px;
+      height: 65px;
+      border: 3px solid #0f172a;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 20px;
+      background: #ffffff;
+      margin-top: 5px;
+    }
+    .size-4 .fraction-box, .size-6 .fraction-box, .size-12 .fraction-box {
+      position: absolute; bottom: 5px; right: 5px; margin-top: 0; background: white; z-index: 10;
+    }
+    .fraction-box .num { border-bottom: 3px solid #0f172a; width: 80%; text-align: center; padding-bottom: 2px; min-height: 24px; }
+    .fraction-box .den { width: 80%; text-align: center; padding-top: 2px; min-height: 24px; }
+
+    .delete-card-btn {
+      position: absolute; top: 0; right: 0; background: #ef4444; color: white;
+      border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0.3; transition: opacity 0.2s; z-index: 20;
+    }
+    .cut-card:hover .delete-card-btn { opacity: 1; }
+
     @media print {
-      .button-row, h1 {
-        display: none;
-      }
+      @page { size: A4; margin: 0; }
+      body { background: white; padding: 0; color: #000; }
+      .controls, .delete-card-btn { display: none !important; }
+      .worksheet { box-shadow: none; padding: 10mm; margin: 0; width: 210mm; min-height: 297mm; }
+      .cut-card { border: 1px dashed #cbd5e1; }
     }
   </style>
 </head>
 <body>
-  <h1>🧮 Fraction Visualiser</h1>
-  <div class="button-row">
-    <label>Enter Fraction (e.g. 3/4 or 1 1/4): </label>
-    <input type="text" id="fractionInput" />
-    <button onclick="addBar()">Add Bar</button>
-    <button onclick="addPie()">Add Pie</button>
-    <button onclick="addLine()">Add Line</button>
-    <button onclick="window.print()">🖨️ Print Worksheet</button>
+
+  <div class="controls">
+    <h1>🧩 A4 Fraction Activity Assistant</h1>
+    <div class="form-grid">
+      <div class="field">
+        <label for="activityStyle">Activity Style</label>
+        <select id="activityStyle">
+          <option value="justshape">Empty Shape (Just Shape Alone)</option>
+          <option value="empty">Empty Shape (Shade fraction task)</option>
+          <option value="find">Shaded Shape (Find fraction task)</option>
+          <option value="show">Shaded Shape (Show finished answer)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="numInput">Numerator (Parts to Color)</label>
+        <input type="number" id="numInput" value="3" min="0" max="100" />
+      </div>
+      <div class="field">
+        <label for="splitInput">Denominator (Total Split Parts)</label>
+        <input type="number" id="splitInput" value="4" min="1" max="100" />
+      </div>
+      <div class="field">
+        <label for="colorTheme">Coloring Style</label>
+        <select id="colorTheme" onchange="resizeAllCanvases()">
+          <option value="bw">Black & White (Photocopy Gray)</option>
+          <option value="color">Bright Color (Vibrant Blue)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pageSize">A4 Page Layout / Scale Size</label>
+        <select id="pageSize" onchange="updatePageLayout()">
+          <option value="4">4 Large Shapes per Page</option>
+          <option value="1">1 Huge Shape (Takes up whole page)</option>
+          <option value="2">2 Big Shapes per Page</option>
+          <option value="6">6 Medium Shapes per Page</option>
+          <option value="12">12 Small Shapes per Page</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button onclick="generateBlock('pie')">➕ Add Pie Graph</button>
+      <button onclick="generateBlock('bar')">➕ Add Bar Model</button>
+      <button onclick="generateBlock('line')">➕ Add Line Graph</button>
+      <button class="clear-btn" onclick="clearAll()">🧹 Clear Sheet</button>
+      <button class="print-btn" onclick="window.print()">🖨️ Print Perfect A4 Worksheet</button>
+    </div>
   </div>
 
   <div id="worksheet" class="worksheet">
-    <h2>Student Worksheet</h2>
-    <p>Name: _______________________________</p>
-    <p>Date: _______________________________</p>
-    <div id="worksheetVisuals"></div>
+    <div class="ws-header" id="wsHeader">
+      <div class="ws-title" contenteditable="true">Fractions Workspace Activity</div>
+      <div class="student-meta">
+        <div style="width: 60%; display: flex;">Name: <div class="meta-line"></div></div>
+        <div style="width: 40%; display: flex;">Date: <div class="meta-line"></div></div>
+      </div>
+    </div>
+    
+    <div id="visualsGrid" class="visuals-grid size-4">
+      </div>
   </div>
 
   <script>
-    function parseFraction() {
-      const input = document.getElementById("fractionInput").value.trim();
-      const mixedMatch = input.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-      const fractionMatch = input.match(/^(\d+)\/(\d+)$/);
-
-      let numerator, denominator, label = input;
-
-      if (mixedMatch) {
-        const whole = parseInt(mixedMatch[1]);
-        const num = parseInt(mixedMatch[2]);
-        const den = parseInt(mixedMatch[3]);
-        numerator = whole * den + num;
-        denominator = den;
-        label = `${whole} ${num}/${den}`;
-      } else if (fractionMatch) {
-        numerator = parseInt(fractionMatch[1]);
-        denominator = parseInt(fractionMatch[2]);
+    function updatePageLayout() {
+      const mode = document.getElementById('pageSize').value;
+      document.getElementById('visualsGrid').className = 'visuals-grid size-' + mode;
+      
+      const header = document.getElementById('wsHeader');
+      if (mode === '1') {
+        header.style.display = 'none';
       } else {
-        alert("Invalid format. Use '3/4' or '1 1/4'");
-        return null;
+        header.style.display = 'block';
       }
-
-      return { numerator, denominator, label };
+      
+      setTimeout(resizeAllCanvases, 50);
     }
 
-    function createCanvas(w, h) {
-      const c = document.createElement("canvas");
-      c.width = w;
-      c.height = h;
-      return c;
+    function clearAll() {
+      if(confirm("Clear worksheet elements?")) {
+        document.getElementById('visualsGrid').innerHTML = '';
+      }
     }
 
-    function addBar() {
-      const parsed = parseFraction();
-      if (!parsed) return;
-      const { numerator, denominator, label } = parsed;
-
-      const container = document.createElement("div");
-      container.className = "block";
-      container.innerHTML = `<div class='label'>Bar: ${label}</div>`;
-      const parts = Math.ceil(numerator / denominator);
-
-      for (let i = 0; i < parts; i++) {
-        const canvas = createCanvas(220, 40);
-        const ctx = canvas.getContext("2d");
-        for (let j = 0; j < denominator; j++) {
-          ctx.strokeRect(j * (200 / denominator) + 10, 10, 200 / denominator, 20);
+    function resizeAllCanvases() {
+      const cards = document.querySelectorAll('.cut-card');
+      cards.forEach(card => {
+        const canvas = card.querySelector('canvas');
+        const container = card.querySelector('.card-canvas-container');
+        if (!canvas || !container) return;
+        
+        const rect = container.getBoundingClientRect();
+        canvas.width = rect.width * 2;
+        canvas.height = rect.height * 2;
+        
+        const ctx = canvas.getContext('2d');
+        const type = canvas.dataset.type;
+        const den = parseInt(canvas.dataset.den);
+        const fill = parseInt(canvas.dataset.fill);
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (type === 'pie') {
+          drawPie(ctx, canvas.width, canvas.height, den, fill);
+        } else if (type === 'bar') {
+          drawBar(ctx, canvas.width, canvas.height, den, fill);
+        } else if (type === 'line') {
+          drawLine(ctx, canvas.width, canvas.height, den, fill);
         }
-        container.appendChild(canvas);
-      }
-
-      document.getElementById("worksheetVisuals").appendChild(container);
+      });
     }
 
-    function addPie() {
-      const parsed = parseFraction();
-      if (!parsed) return;
-      const { numerator, denominator, label } = parsed;
+    function generateBlock(type) {
+      const style = document.getElementById('activityStyle').value;
+      const num = parseInt(document.getElementById('numInput').value) || 0;
+      const den = parseInt(document.getElementById('splitInput').value) || 1;
+      const grid = document.getElementById('visualsGrid');
+      
+      const card = document.createElement('div');
+      card.className = 'cut-card';
 
-      const container = document.createElement("div");
-      container.className = "block";
-      container.innerHTML = `<div class='label'>Pie: ${label}</div>`;
-      const parts = Math.ceil(numerator / denominator);
+      const title = document.createElement('div');
+      title.className = 'card-title';
+      title.contentEditable = true;
+      
+      if (style === 'justshape') {
+        title.innerText = ''; 
+      } else if (style === 'empty') {
+        title.innerText = `Shade Shape:`;
+      } else if (style === 'find') {
+        title.innerText = `What fraction is shaded?`;
+      } else {
+        title.innerText = `Reference Shape:`;
+      }
+      card.appendChild(title);
 
-      for (let i = 0; i < parts; i++) {
-        const canvas = createCanvas(120, 120);
-        const ctx = canvas.getContext("2d");
-        const slices = denominator;
-        for (let j = 0; j < slices; j++) {
-          const angle = j * 2 * Math.PI / slices;
-          const end = (j + 1) * 2 * Math.PI / slices;
-          ctx.beginPath();
-          ctx.moveTo(60, 60);
-          ctx.arc(60, 60, 50, angle, end);
-          ctx.closePath();
-          ctx.stroke();
+      const container = document.createElement('div');
+      container.className = 'card-canvas-container';
+      
+      const canvas = document.createElement('canvas');
+      canvas.dataset.type = type;
+      canvas.dataset.den = den;
+      canvas.dataset.fill = (style === 'empty' || style === 'justshape') ? 0 : num;
+      
+      container.appendChild(canvas);
+      card.appendChild(container);
+
+      if (style !== 'justshape') {
+        const box = document.createElement('div');
+        box.className = 'fraction-box';
+        if (style === 'empty') {
+          box.innerHTML = `<div class="num">${num}</div><div class="den">${den}</div>`;
+        } else if (style === 'find') {
+          box.innerHTML = `<div class="num" contenteditable="true"></div><div class="den" contenteditable="true"></div>`;
+        } else {
+          box.innerHTML = `<div class="num">${num}</div><div class="den">${den}</div>`;
         }
-        container.appendChild(canvas);
+        card.appendChild(box);
       }
 
-      document.getElementById("worksheetVisuals").appendChild(container);
+      const del = document.createElement('button');
+      del.className = 'delete-card-btn';
+      del.innerHTML = '×';
+      del.onclick = () => card.remove();
+      card.appendChild(del);
+
+      grid.appendChild(card);
+      
+      const rect = container.getBoundingClientRect();
+      canvas.width = (rect.width || 400) * 2;
+      canvas.height = (rect.height || 250) * 2;
+      
+      const ctx = canvas.getContext('2d');
+      if (type === 'pie') {
+        drawPie(ctx, canvas.width, canvas.height, den, parseInt(canvas.dataset.fill));
+      } else if (type === 'bar') {
+        drawBar(ctx, canvas.width, canvas.height, den, parseInt(canvas.dataset.fill));
+      } else if (type === 'line') {
+        drawLine(ctx, canvas.width, canvas.height, den, parseInt(canvas.dataset.fill));
+      }
     }
 
-    function addLine() {
-      const parsed = parseFraction();
-      if (!parsed) return;
-      const { numerator, denominator, label } = parsed;
+    function getFillColor() {
+      const mode = document.getElementById('colorTheme').value;
+      return mode === 'color' ? '#3b82f6' : '#cbd5e1';
+    }
 
-      const container = document.createElement("div");
-      container.className = "block";
-      container.innerHTML = `<div class='label'>Line: ${label}</div>`;
+    function drawPie(ctx, w, h, den, fill) {
+      const cx = w / 2;
+      const cy = h / 2;
+      const numInputVal = parseInt(document.getElementById('numInput').value) || 0;
+      const sets = Math.max(1, Math.ceil(fill / den));
+      
+      if (sets > 1 || numInputVal > den) {
+        const maxRadius = (Math.min(w / 2, h) / 2) - 20;
+        drawSingleCircle(ctx, cx - (maxRadius + 20), cy, maxRadius, den, fill);
+        drawSingleCircle(ctx, cx + (maxRadius + 20), cy, maxRadius, den, Math.max(0, fill - den));
+      } else {
+        const maxRadius = (Math.min(w, h) / 2) - 20;
+        drawSingleCircle(ctx, cx, cy, maxRadius, den, fill);
+      }
+    }
 
-      const canvas = createCanvas(320, 50);
-      const ctx = canvas.getContext("2d");
-
-      const xStart = 20;
-      const xEnd = 300;
-      const y = 25;
-      const parts = Math.ceil(numerator / denominator);
-      const totalTicks = parts * denominator;
-
-      // Main line
-      ctx.beginPath();
-      ctx.moveTo(xStart, y);
-      ctx.lineTo(xEnd, y);
-      ctx.stroke();
-
-      // Tick marks
-      for (let i = 0; i <= totalTicks; i++) {
-        const x = xStart + ((xEnd - xStart) / totalTicks) * i;
+    function drawSingleCircle(ctx, cx, cy, r, den, fill) {
+      const step = (2 * Math.PI) / den;
+      for (let i = 0; i < den; i++) {
+        const start = i * step - Math.PI / 2;
+        const end = (i + 1) * step - Math.PI / 2;
         ctx.beginPath();
-        ctx.moveTo(x, y - 10);
-        ctx.lineTo(x, y + 10);
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        
+        if (i < fill) {
+          ctx.fillStyle = getFillColor();
+          ctx.fill();
+        }
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 5;
         ctx.stroke();
       }
+    }
 
-      // Numbers
-      ctx.font = "12px sans-serif";
-      for (let i = 0; i <= parts; i++) {
-        const x = xStart + ((xEnd - xStart) / parts) * i;
-        ctx.fillText(i.toString(), x - 4, y + 25);
+    function drawBar(ctx, w, h, den, fill) {
+      const px = 20;
+      const bH = Math.min(h - 40, 140); 
+      const bW = w - (px * 2);
+      const y = (h / 2) - (bH / 2);
+      const step = bW / den;
+
+      for (let i = 0; i < den; i++) {
+        ctx.beginPath();
+        ctx.rect(px + (i * step), y, step, bH);
+        if (i < fill) {
+          ctx.fillStyle = getFillColor();
+          ctx.fill();
+        }
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+      }
+    }
+
+    function drawLine(ctx, w, h, den, fill) {
+      const sx = 40;
+      const ex = w - 40;
+      const y = h / 2;
+      const step = (ex - sx) / den;
+
+      ctx.beginPath();
+      ctx.moveTo(sx, y);
+      ctx.lineTo(ex, y);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+
+      for (let i = 0; i <= den; i++) {
+        const cx = sx + (i * step);
+        ctx.beginPath();
+        ctx.moveTo(cx, y - 25);
+        ctx.lineTo(cx, y + 25);
+        ctx.stroke();
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(i, cx, y + 65);
       }
 
-      container.appendChild(canvas);
-      document.getElementById("worksheetVisuals").appendChild(container);
+      if (fill > 0 && fill <= den) {
+        ctx.beginPath();
+        ctx.arc(sx + (fill * step), y, 16, 0, 2 * Math.PI);
+        ctx.fillStyle = document.getElementById('colorTheme').value === 'color' ? '#ef4444' : '#000000';
+        ctx.fill();
+        ctx.stroke();
+      }
     }
+
+    window.addEventListener('resize', resizeAllCanvases);
   </script>
 </body>
 </html>
